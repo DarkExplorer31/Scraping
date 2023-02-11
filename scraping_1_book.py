@@ -8,7 +8,7 @@ response = requests.get(product_page_url)
 
 #Informations à avoir
 if response.ok:
-    all_titles = ['URL','UPC','Title','Price (incl. tax)','Price (excl. tax)','Availability','Product Description','Category','Rating','Image URL'] #Liste des Titres du DataFrame
+    all_titles = ['URL','UPC','Title','Price (incl. tax)','Price (excl. tax)','Availability','Product Description','Category','Rating','Image URL'] #Liste des Titres
     all_infos = [] #Liste des Infos tirées du site
     #Première info: L'URL
     all_infos.append(product_page_url)
