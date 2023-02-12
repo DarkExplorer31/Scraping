@@ -6,7 +6,7 @@ all_titles = ['URL','UPC','Title','Price (incl. tax)','Price (excl. tax)','Avail
 result_category = [] #Liste des infos tirées de tout les livres 
 
 def Search(url_product):
-    """Fonction qui cherche les informations par livres et les retournes en csv"""
+    """Fonction qui cherche les informations par livres"""
     requests_product = requests.get(url_product)
     if requests_product.ok:
         all_infos = [] #Liste des Infos tirées du livre traité
@@ -59,15 +59,26 @@ def Search(url_product):
         return("L'Url n'est pas bon")
 
 page_url_category = 'http://books.toscrape.com/catalogue/category/books/historical-fiction_4/page-1.html' #url de la catégorie "historical-fiction" page 1
-for page in range(3):
-    page_url_category = 'http://books.toscrape.com/catalogue/category/books/historical-fiction_4/page-{}.html'.format(page) #On fait une boucle pour avoir toutes les URLs de la catégorie
-    if page == 0:
-        pass
+response = requests.get(page_url_category)
+if response.ok:
+    soup = bs(response.text, features='html.parser')
+    next = soup.find('li',{'class':'current'})
+    nb_page = next.text.strip()
+    if len(nb_page) == 11: #On cherche le nombre de page
+        nb_page = nb_page[-1:]
     else:
-        response = requests.get(page_url_category)
-        if response.ok: #Si le lien vers la page est bonne
-            soup = bs(response.text, features='html.parser')
-            urls = soup.find_all('li',{'class':'col-xs-6 col-sm-4 col-md-3 col-lg-3'})
+        nb_page = nb_page[-2:]
+    try:
+        nb_page = int(nb_page)
+    except ValueError:
+        nb_page = int(nb_page)
+    nb_page += 1
+    for page in range(1,nb_page): #On fait une boucle par page
+        url_category = 'http://books.toscrape.com/catalogue/category/books/historical-fiction_4/page-{}.html'.format(page) #On fait une boucle pour avoir toutes les URLs de la catégorie
+        response = requests.get(url_category)
+        soup = bs(response.text, features='html.parser')
+        if response.ok:
+            urls = soup.find_all('h3',{'class':None})
             for url in urls: #On ajoute les URLs trouvées 
                 a = url.find('a')
                 link_url = a['href']
@@ -75,8 +86,8 @@ for page in range(3):
                 links_url.append(link_url) #On récupère les urls de chaque livre dans la catégorie, et on l'ajoute dans une liste
             for link in links_url:
                 infos = Search(link)
-                result_category.append(infos)
-                with open('result.csv','w', encoding='utf-8') as result: 
+                result_category.append(infos) #On ajoute les titres puis les resultats, ligne par lignes
+                with open('Data/result.csv','w', encoding='utf-8') as result: 
                     writer = csv.writer(result)
                     writer.writerow(all_titles)
                     for info in result_category:

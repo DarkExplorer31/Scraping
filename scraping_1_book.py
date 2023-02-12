@@ -50,7 +50,7 @@ if response.ok:
     #L'url de l'image
     image_url = soup.find('img')
     all_infos.append(image_url['src'])
-    with open('result.csv','w') as result:
+    with open('Data/result.csv','w') as result:
         writer = csv.writer(result)
         writer.writerow(all_titles)
         writer.writerow(all_infos)
