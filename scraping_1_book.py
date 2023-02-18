@@ -1,8 +1,9 @@
 import requests
 from bs4 import BeautifulSoup as bs
+from bs4 import UnicodeDammit as ud
 import csv
 
-product_page_url = 'http://books.toscrape.com/catalogue/tipping-the-velvet_999/index.html'
+product_page_url = 'http://books.toscrape.com/catalogue/its-only-the-himalayas_981/index.html'
 
 response = requests.get(product_page_url)
 
@@ -13,7 +14,10 @@ if response.ok:
     #Première info: L'URL
     all_infos.append(product_page_url)
     #Paramétrage de BeautifulSoup
-    soup = bs(response.text, features='html.parser') 
+    encoding = response.text
+    encoding = encoding.encode("ISO-8859-1") #On encode en format 'ISO-8859-1'
+    dammit = ud(encoding, ["utf-8","ISO-8859-1"]).unicode_markup 
+    soup = bs(dammit, features='html.parser')
     #Deuxième info: UPC
     source_table = soup.find_all('td')
     universal_product_code = source_table[0]
@@ -23,11 +27,9 @@ if response.ok:
     all_infos.append(title.text)
     #Quatrième Info: Prix incluant la tax
     price_including_tax = source_table[3].text
-    price_including_tax = price_including_tax.replace('Â£','')
     all_infos.append(price_including_tax)
     #Cinquième Info: Prix excluant la tax
     price_excluding_tax = source_table[2].text
-    price_excluding_tax = price_excluding_tax.replace('Â£','')
     all_infos.append(price_excluding_tax)
     #Sixième Info: Nombre Disponible
     number_available = source_table[5].text
@@ -50,7 +52,8 @@ if response.ok:
     #L'url de l'image
     image_url = soup.find('img')
     all_infos.append(image_url['src'])
-    with open('Data/result.csv','w') as result:
+    print(all_infos)
+    with open('Data/result.csv','w',encoding='utf-8') as result:
         writer = csv.writer(result)
         writer.writerow(all_titles)
         writer.writerow(all_infos)

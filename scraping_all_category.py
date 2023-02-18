@@ -1,18 +1,22 @@
 import requests, csv, os, time
 from bs4 import BeautifulSoup as bs
+from bs4 import UnicodeDammit as ud
 from urllib.request import urlretrieve
 from urllib.parse import urljoin
 
 #Definition des fonctions utiles
 def search_product(url_product):
     """Fonction qui cherche les informations par livre"""
-    requests_product = requests.get(url_product)
-    if requests_product.ok:
+    response = requests.get(url_product)
+    if response.ok:
         all_infos = [] #Liste des Infos tirées du livre traité
         #Première info: L'URL
         all_infos.append(url_product)
         #Paramétrage de BeautifulSoup
-        soup = bs(requests_product.text, features='html.parser') 
+        encoding = response.text
+        encoding = encoding.encode("ISO-8859-1") #On encode en format 'ISO-8859-1'
+        dammit = ud(encoding, ["utf-8","ISO-8859-1"]).unicode_markup 
+        soup = bs(dammit, features='html.parser') 
         #Deuxième info: UPC
         source_table = soup.find_all('td')
         universal_product_code = source_table[0]
@@ -37,7 +41,8 @@ def search_product(url_product):
             product_description = 'N/A'
             all_infos.append(product_description)
         else:
-            all_infos.append(product_description.text)
+            product_description = product_description.text
+            all_infos.append(product_description)
         #Catégorie
         source_link = soup.find_all('a')
         category = source_link[3].text
@@ -60,8 +65,9 @@ def search_product(url_product):
 def download_img(repo_receiver,title_img,url):
     """Fonction qui enregistre les images"""
     title_img = title_img.replace(' ', '_')
-    final_path = repo_receiver + title_img.capitalize() + '.jpg'
-    urlretrieve(url,final_path)
+    final_path = repo_receiver + title_img.title() + '.png'
+    img_download = urlretrieve(url,final_path)
+    return img_download
     
 def search_category(link_category, title_category, page_url):
     """Fonction qui cherche les infos pour toutes les categories et les enregistres"""
@@ -97,7 +103,6 @@ def search_category(link_category, title_category, page_url):
             elif page > 2:
                 previous_page = 'page-{}.html'.format(page - 1)
                 link_category = link_category.replace(previous_page,'page-{}.html'.format(page))
-                print(link_category)
             response = requests.get(link_category) #On fait une requête 'GET' sur chaque lien de page
             soup = bs(response.text, features='html.parser') #On reparamètre 'BeautifulSoup' pour chaque page de la catégorie
             if response.ok: #Si le lien répond
@@ -110,7 +115,11 @@ def search_category(link_category, title_category, page_url):
                     infos_by_category.append(book_infos)
                     img_url = book_infos[9] #Maintenant qu'on as les informations, on récupère les images
                     img_url = urljoin(page_url,img_url) #on remplace le lien fourni par un lien valide
-                    download_img('{}/'.format(file_reveiver),book_infos[2],img_url) #On récupère respectivement le titre du livre et l'URL de l'image, que l'on passe à notre fonction de téléchargement
+                    book_title = book_infos[0]
+                    book_title = book_title.split('/')
+                    book_title = book_title[4]
+                    #raise AttributeError("")
+                    download_img('{}/'.format(file_reveiver),book_title,img_url) #On récupère le titre du livre et l'URL de l'image, que l'on passe à notre fonction de téléchargement
         with open('{}/result-{}.csv'.format(file_reveiver,title_category),'w', encoding='utf-8') as result: #On ecrit les fichier '.csv' après avoir récuperer toutes les informations
             writer = csv.writer(result)
             writer.writerow(all_titles) #D'abord les titres, puis les informations pour chaque livre
