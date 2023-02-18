@@ -40,17 +40,13 @@ def Search(url_product):
         category = source_link[3].text
         all_infos.append(category)
         #La note reçu
-        all_rated = {'One':1,'Two':2,'Three':3,'Four':4,'Five':1}
-        for score in all_rated: #On cherche la note du livre traiter, puique le nom de la class en dépend
-            review_rating = soup.find('p',{'class':'star-rating {}'.format(score)})
-            if review_rating == None:
-                pass
-            else:
-                review_rating = review_rating['class']
-                review_rating = str(review_rating[1])
-                if review_rating in all_rated:#Transformer en int()
-                    review_rating = all_rated[review_rating]
-                all_infos.append(review_rating)
+        all_rated = {'One':1,'Two':2,'Three':3,'Four':4,'Five':5}
+        review_rating = soup.find('p',{"class":"star-rating"})
+        review_rating = review_rating['class']
+        review_rating = review_rating[1]
+        if review_rating in all_rated:
+            review_rating = all_rated[review_rating]
+            all_infos.append(review_rating)
         #L'url de l'image
         image_url = soup.find('img')
         all_infos.append(image_url['src'])

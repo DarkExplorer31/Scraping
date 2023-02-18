@@ -1,10 +1,10 @@
-import requests, csv
+import requests, csv, os, time
 from bs4 import BeautifulSoup as bs
-
-links_category = {} #Liste des catégories du site 
+from urllib.request import urlretrieve
+from urllib.parse import urljoin
 
 #Definition des fonctions utiles
-def Search_product(url_product):
+def search_product(url_product):
     """Fonction qui cherche les informations par livre"""
     requests_product = requests.get(url_product)
     if requests_product.ok:
@@ -43,94 +43,90 @@ def Search_product(url_product):
         category = source_link[3].text
         all_infos.append(category)
         #La note reçu
-        all_rated = {'One':1,'Two':2,'Three':3,'Four':4,'Five':1}
-        for score in all_rated: #On cherche la note du livre traiter, puique le nom de la class en dépend
-            review_rating = soup.find('p',{'class':'star-rating {}'.format(score)})
-            if review_rating == None:
-                review_rating = 'N/A'
-                all_infos.append(review_rating)
-            else:
-                review_rating = review_rating['class']
-                review_rating = str(review_rating[1])
-                if review_rating in all_rated:#Transformer en int()
-                    review_rating = all_rated[review_rating]
-                all_infos.append(review_rating)
+        all_rated = {'One':1,'Two':2,'Three':3,'Four':4,'Five':5}
+        review_rating = soup.find('p',{"class":"star-rating"})
+        review_rating = review_rating['class']
+        review_rating = review_rating[1]
+        if review_rating in all_rated:
+            review_rating = all_rated[review_rating]
+            all_infos.append(review_rating)
         #L'url de l'image
         image_url = soup.find('img')
         all_infos.append(image_url['src'])
         return all_infos
     else:
-        return("L'Url n'est pas bon")
+        raise ValueError("L'Url n'est pas bon")
 
-def Search_category(link_category, title_category):
-    """Fonction qui cherche les infos pour toutes les categories"""
-    links_url = []
+def download_img(repo_receiver,title_img,url):
+    """Fonction qui enregistre les images"""
+    title_img = title_img.replace(' ', '_')
+    final_path = repo_receiver + title_img.capitalize() + '.jpg'
+    urlretrieve(url,final_path)
+    
+def search_category(link_category, title_category, page_url):
+    """Fonction qui cherche les infos pour toutes les categories et les enregistres"""
+    #Définition des variables
     all_titles = ['URL','UPC','Title','Price (incl. tax)','Price (excl. tax)','Availability','Product Description','Category','Rating','Image URL'] #Liste des Titres
-    result_category = [] #Liste des infos tirées de tout les livres 
-    response = requests.get(link_category)
-    if response.ok:
-        soup = bs(response.text, features='html.parser')
-        next = soup.find('li',{'class':'current'})
-        if next == None: #Si on as qu'une seule page
-            response = requests.get(link_category)
-            soup = bs(response.text, features='html.parser')
-            if response.ok:
-                urls = soup.find_all('h3',{'class':None})
-                for url in urls: #On ajoute les URLs trouvées 
+    infos_by_category = [] #Liste des infos tirées de tout les livres
+    title_category = title_category.replace(' ', '_')
+    file_reveiver = "Data/{}".format(title_category)
+    
+    #Paramétrage des fichiers de réception
+    data_folder_exist = os.path.exists('Data')
+    test_lien = os.path.exists(file_reveiver) #On vérifie le lien des dossiers de dépose des infos et des images
+    if data_folder_exist is False:
+        os.mkdir('Data')
+    if test_lien is False:
+        os.mkdir(file_reveiver) #Si les fichiers n'existe pas, on les créés
+
+    #On lance la fonction pour trouver les infos de tout les livres de la catégorie en argument:
+    response = requests.get(link_category) #On prend les premier paramètre fournis: le lien vers la première page de la catégorie
+    if response.ok: #Si le lien est correct
+        soup = bs(response.text, features='html.parser') #On paramètre 'BeautifulSoup' sur ce lien
+        nb_page = soup.find('li',{'class':'current'}) #On cherche si il y a plus d'une page
+        try:
+            nb_page = nb_page.text
+        except AttributeError: #Si on as qu'une page
+            nb_page = 1
+        if nb_page != 1: #Si on as plus d'une page
+            nb_page = nb_page.split()
+            nb_page = int(nb_page[3])#On récupère le nombre de page
+        for page in range(1,nb_page+1): #On fait une boucle par page
+            if page == 2:
+                link_category = link_category.replace('index.html','page-2.html')
+            elif page > 2:
+                previous_page = 'page-{}.html'.format(page - 1)
+                link_category = link_category.replace(previous_page,'page-{}.html'.format(page))
+                print(link_category)
+            response = requests.get(link_category) #On fait une requête 'GET' sur chaque lien de page
+            soup = bs(response.text, features='html.parser') #On reparamètre 'BeautifulSoup' pour chaque page de la catégorie
+            if response.ok: #Si le lien répond
+                url_books = soup.find_all('h3',{'class':None}) #On cherche les URLs de chaque livre de la catégorie
+                for url in url_books: #On ajoute les URLs trouvées 
                     a = url.find('a')
-                    link_url = a['href']
-                    link_url = link_url.replace('../../../','http://books.toscrape.com/catalogue/')
-                    links_url.append(link_url) #On récupère les urls de chaque livre dans la catégorie, et on l'ajoute dans une liste
-                for link in links_url:
-                    infos = Search_product(link)
-                    result_category.append(infos) #On ajoute les titres puis les resultats, ligne par lignes
-                    with open('Data/result-{}.csv'.format(title_category),'w', encoding='utf-8') as result: 
-                        writer = csv.writer(result)
-                        writer.writerow(all_titles)
-                        for info in result_category:
-                            writer.writerow(info)
-        else: #Si on as plus d'une page
-            nb_page = next.text.strip()
-            if len(nb_page) == 11: #On cherche le nombre de page
-                nb_page = nb_page[-1:]
-            else:
-                nb_page = nb_page[-2:]
-            try:
-                nb_page = int(nb_page)
-            except ValueError:
-                nb_page = int(nb_page)
-            nb_page += 1
-            for page in range(1,nb_page): #On fait une boucle par page
-                link_category = link_category.replace('index.html','page-{}.html'.format(page))
-            response = requests.get(link_category)
-            soup = bs(response.text, features='html.parser')
-            if response.ok:
-                urls = soup.find_all('h3',{'class':None})
-                for url in urls: #On ajoute les URLs trouvées 
-                    a = url.find('a')
-                    link_url = a['href']
-                    link_url = link_url.replace('../../../','http://books.toscrape.com/catalogue/')
-                    links_url.append(link_url) #On récupère les urls de chaque livre dans la catégorie, et on l'ajoute dans une liste
-                for link in links_url:
-                    infos = Search_product(link)
-                    result_category.append(infos) #On ajoute les titres puis les resultats, ligne par lignes
-                    with open('Data/result-{}.csv'.format(title_category),'w', encoding='utf-8') as result: 
-                        writer = csv.writer(result)
-                        writer.writerow(all_titles)
-                        for info in result_category:
-                            writer.writerow(info)
+                    book_url = a['href']
+                    book_url = urljoin(link_category,book_url) #On recréer le lien fourni
+                    book_infos = search_product(book_url) #On prend les informations de chaque livre
+                    infos_by_category.append(book_infos)
+                    img_url = book_infos[9] #Maintenant qu'on as les informations, on récupère les images
+                    img_url = urljoin(page_url,img_url) #on remplace le lien fourni par un lien valide
+                    download_img('{}/'.format(file_reveiver),book_infos[2],img_url) #On récupère respectivement le titre du livre et l'URL de l'image, que l'on passe à notre fonction de téléchargement
+        with open('{}/result-{}.csv'.format(file_reveiver,title_category),'w', encoding='utf-8') as result: #On ecrit les fichier '.csv' après avoir récuperer toutes les informations
+            writer = csv.writer(result)
+            writer.writerow(all_titles) #D'abord les titres, puis les informations pour chaque livre
+            for element in infos_by_category: #A la fin de l'analyse de chaque catégorie, on écrit le '.csv' et on remet la liste 'infos_by_category' à zero
+                writer.writerow(element)
+        print("Categorie traité: {}".format(title_category))
+        time.sleep(1) #On attend pour ne pas surchager de connexion
 
 page_url = 'http://books.toscrape.com/'
 response = requests.get(page_url)
-if response.ok: #Si le lien vers la page est bonne
+if response.ok: #Si le lien vers la page est bon
     soup = bs(response.text, features='html.parser')
-    urls_contener = soup.find('ul',{'class':None})
-    urls_category = urls_contener.find_all('a') #On trie toutes les 'a' pour n'avoir que les 'a' des categories
+    url_first_page = soup.find('ul',{'class':None})
+    urls_category = url_first_page.find_all('a') #On trie toutes les 'a' pour n'avoir que les 'a' des categories
     for link in urls_category: #On ajoute les URLs trouvées 
-        link_category = link['href']
-        title = link.text.strip()
-        link_category = page_url + link_category
-        links_category.update({link_category:title}) #On ajoute la veritable url de la catégorie à la liste d'url des categories
-    for k, v in links_category.items():
-       infos_by_category = Search_category(k,v)
+        link_category = page_url + link['href']
+        title_category = link.text.strip() #On récupère les titres des catégories
+        infos_by_category = search_category(link_category,title_category,page_url)
 
