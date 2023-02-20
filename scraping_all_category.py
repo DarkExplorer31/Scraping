@@ -4,9 +4,14 @@ from bs4 import UnicodeDammit as ud
 from urllib.request import urlretrieve
 from urllib.parse import urljoin
 
+#On s'assure que le code s'execute dans le fichier où se trouve le code
+absolute_link = os.path.abspath(__file__)
+path_to_file = os.path.dirname(absolute_link)
+os.chdir(path_to_file)
+
 #Definition des fonctions utiles
 def search_product(url_product):
-    """Fonction qui cherche les informations par livre"""
+    """Fonction qui cherche les informations par livre, prend en paramètre uniquement le lien URL du livre"""
     response = requests.get(url_product)
     if response.ok:
         all_infos = [] #Liste des Infos tirées du livre traité
@@ -26,16 +31,17 @@ def search_product(url_product):
         all_infos.append(title.text)
         #Quatrième Info: Prix incluant la tax
         price_including_tax = source_table[3].text
-        price_including_tax = price_including_tax.replace('Â£','')
         all_infos.append(price_including_tax)
         #Cinquième Info: Prix excluant la tax
         price_excluding_tax = source_table[2].text
-        price_excluding_tax = price_excluding_tax.replace('Â£','')
         all_infos.append(price_excluding_tax)
         #Sixième Info: Nombre Disponible
         number_available = source_table[5].text
+        number_available = number_available.split()
+        number_available = number_available[2]
+        number_available = number_available.replace('(','')
         all_infos.append(number_available)
-        #Description du Produit
+        #La Description du Produit
         product_description = soup.find('p',{'class':None})
         if product_description == None:
             product_description = 'N/A'
@@ -43,7 +49,7 @@ def search_product(url_product):
         else:
             product_description = product_description.text
             all_infos.append(product_description)
-        #Catégorie
+        #La Catégorie
         source_link = soup.find_all('a')
         category = source_link[3].text
         all_infos.append(category)
@@ -63,17 +69,18 @@ def search_product(url_product):
         raise ValueError("L'Url n'est pas bon")
 
 def download_img(repo_receiver,title_img,url):
-    """Fonction qui enregistre les images"""
+    """Fonction qui enregistre les images. Prend en paramètre le fichier de réception, le titre de l'image et son URL."""
     title_img = title_img.replace(' ', '_')
     final_path = repo_receiver + title_img.title() + '.png'
     img_download = urlretrieve(url,final_path)
     return img_download
     
 def search_category(link_category, title_category, page_url):
-    """Fonction qui cherche les infos pour toutes les categories et les enregistres"""
+    """Fonction qui cherche les informations pour toutes les categories et les enregistres.
+    Prend en paramètre le lien d'une catégorie, le titre de celle-ci et son lien URL."""
     #Définition des variables
     all_titles = ['URL','UPC','Title','Price (incl. tax)','Price (excl. tax)','Availability','Product Description','Category','Rating','Image URL'] #Liste des Titres
-    infos_by_category = [] #Liste des infos tirées de tout les livres
+    infos_by_category = [] #Liste des informations tirées de tout les livres
     title_category = title_category.replace(' ', '_')
     file_reveiver = "Data/{}".format(title_category)
     
@@ -83,10 +90,10 @@ def search_category(link_category, title_category, page_url):
     if data_folder_exist is False:
         os.mkdir('Data')
     if test_lien is False:
-        os.mkdir(file_reveiver) #Si les fichiers n'existe pas, on les créés
+        os.mkdir(file_reveiver) #Si les fichiers n'existent pas, on les créés
 
-    #On lance la fonction pour trouver les infos de tout les livres de la catégorie en argument:
-    response = requests.get(link_category) #On prend les premier paramètre fournis: le lien vers la première page de la catégorie
+    #On lance la fonction pour trouver les informations de tout les livres de la catégorie en argument:
+    response = requests.get(link_category) #On prend les premiers paramètres fournis: le lien vers la première page de la catégorie
     if response.ok: #Si le lien est correct
         soup = bs(response.text, features='html.parser') #On paramètre 'BeautifulSoup' sur ce lien
         nb_page = soup.find('li',{'class':'current'}) #On cherche si il y a plus d'une page
@@ -123,18 +130,18 @@ def search_category(link_category, title_category, page_url):
         with open('{}/result-{}.csv'.format(file_reveiver,title_category),'w', encoding='utf-8') as result: #On ecrit les fichier '.csv' après avoir récuperer toutes les informations
             writer = csv.writer(result)
             writer.writerow(all_titles) #D'abord les titres, puis les informations pour chaque livre
-            for element in infos_by_category: #A la fin de l'analyse de chaque catégorie, on écrit le '.csv' et on remet la liste 'infos_by_category' à zero
+            for element in infos_by_category: #A la fin de l'analyse de chaque catégorie, on écrit le fichier '.csv' et on remet la liste 'infos_by_category' à zéro
                 writer.writerow(element)
-        print("Categorie traité: {}".format(title_category))
-        time.sleep(1) #On attend pour ne pas surchager de connexion
+        print("Catégorie traité: {}".format(title_category))
+        time.sleep(1) #On attend pour ne pas surchargé de connexion
 
 page_url = 'http://books.toscrape.com/'
 response = requests.get(page_url)
 if response.ok: #Si le lien vers la page est bon
     soup = bs(response.text, features='html.parser')
     url_first_page = soup.find('ul',{'class':None})
-    urls_category = url_first_page.find_all('a') #On trie toutes les 'a' pour n'avoir que les 'a' des categories
-    for link in urls_category: #On ajoute les URLs trouvées 
+    urls_category = url_first_page.find_all('a') #On trie toutes les '<a>' pour n'avoir que les '<a>' des categories
+    for link in urls_category: #On ajoute les URLs de catégories trouvés 
         link_category = page_url + link['href']
         title_category = link.text.strip() #On récupère les titres des catégories
         infos_by_category = search_category(link_category,title_category,page_url)
