@@ -132,7 +132,7 @@ def search_category(link_category, title_category, page_url):
             writer.writerow(all_titles) #D'abord les titres, puis les informations pour chaque livre
             for element in infos_by_category: #A la fin de l'analyse de chaque catégorie, on écrit le fichier '.csv' et on remet la liste 'infos_by_category' à zéro
                 writer.writerow(element)
-        print("Catégorie traité: {}".format(title_category))
+        print("Catégorie traitée: {}".format(title_category))
         time.sleep(1) #On attend pour ne pas surchargé de connexion
 
 page_url = 'http://books.toscrape.com/'
