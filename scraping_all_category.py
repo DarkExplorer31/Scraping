@@ -10,11 +10,23 @@ path_to_file = os.path.dirname(absolute_link)
 os.chdir(path_to_file)
 
 #Définition des fonctions utilisées
+def response_control(response_status):
+    """Fonction qui control la réponse du site. Prend en paramètre le status de la réponse"""
+    if response_status < 100:
+        raise AttributeError("Le server à reçu la requête mais la requête n'est pas un succès")
+    elif response_status >= 200 and response_status < 300:
+        return response_status
+    elif response_status >= 300 and response_status < 400:
+        raise AttributeError("Le lien a subi une redirection")
+    if response_status >= 400 and response_status < 500:
+        raise AttributeError("La page demandée ne répond plus, vérifiez l'URL utilisé ou limité la quantité de requête")
+    else: #Si le status est supérieur à 500
+        raise AttributeError("La requête au site a échoué, vérifiez votre connexion internet ou que le serveur est encore existant")
+    
 def search_product(url_product):
     """Fonction qui cherche les informations par livre, prend en paramètre uniquement le lien URL du livre"""
     response = requests.get(url_product)
-    if not response.ok: #Si le lien n'est pas correct
-        raise AttributeError("URL incorrect")
+    response_control(response.status_code)
     all_infos = [] #Liste des Informations tirées du livre traité
     all_infos.append(url_product)
     response_encode = response.text
@@ -62,19 +74,6 @@ def download_img(repo_receiver,title_img,url):
     final_path = repo_receiver + title_img.title() + '.png'
     img_download = urlretrieve(url,final_path)
     return img_download
-
-def response_control(response_status):
-    """Fonction qui control la réponse du site. Prend en paramètre le status de la réponse"""
-    if response_status < 100:
-        raise AttributeError("Le server à reçu la requête mais la requête n'est pas un succès")
-    elif response_status >= 200 and response_status < 300:
-        return response_status
-    elif response_status >= 300 and response_status < 400:
-        raise AttributeError("Le lien a subi une redirection")
-    if response_status >= 400 and response_status < 500:
-        raise AttributeError("La page demandée ne répond plus, vérifiez l'URL utilisé ou limité la quantité de requête")
-    else: #Si le status est supérieur à 500
-        raise AttributeError("La requête au site a échoué, vérifiez votre connexion internet ou que le serveur est encore existant")
     
 def control_local_link(file_to_test):
     """Fonction qui vérifie la présence des fichiers de récéptions en local. Prend en paramètre le lien à essayer"""
